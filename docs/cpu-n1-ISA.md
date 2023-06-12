@@ -28,6 +28,8 @@ The specific ISA is a function of these parameters:
   lowest-address byte in the range.)
 - The memory model does *not* have the concept of pages, nor of
   memory protections.
+- There is no requirement that memory read/write instructions specify
+  word-aligned addresses.
 
 ## Little-endian Encoding
 Data representation is *little-endian*: Multi-byte numerical values are
