@@ -71,7 +71,7 @@ Numeric Values
 Integers
 ~~~~~~~~
 
--  Signed integers are have 2’s-complement representation.
+-  Signed integers use 2’s-complement representation.
 -  Unsigned integers have plain binary representaiton.
 -  All integer values are ``$word_size_bytes`` long.
 
