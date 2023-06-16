@@ -169,15 +169,18 @@ Assembly Instruction Table
 Suggested assembly instructions, along with their semantics.
 
 We use the following conventions in this table:
- * ``s1`` means source operand #1
- * ``s2`` means source operand #2
- * ``d`` means destination operand.
- * ``(...)`` indicates what kind(s) of operand is/are valid here:
 
-   * ``(gp-reg)`` the name of any general-purpose register, such as ``%r0`` or ``%r13``
-   * ``(reg)`` the name of any register, including ``%sp``, ``%pc``, and ``%status``
-   * ``(imm)`` an immediate numerical value
-   * ``(...|...)`` any one of the list options, e.g. ``(gp-reg|imm)``.
+* ``s1`` means source operand #1
+* ``s2`` means source operand #2
+* ``d`` means destination operand.
+* ``(...)`` indicates what kind(s) of operand is/are valid here:
+
+  * ``(gp-reg)`` the name of any general-purpose register, such as ``%r0`` or ``%r13``
+  * ``(reg)`` the name of any register, including ``%sp``, ``%pc``, and ``%status``
+  * ``(imm)`` an immediate numerical value
+  * ``(...|...)`` any one of the list options, e.g. ``(gp-reg|imm)``.
+
+* ``--`` means the operation doesn't accept an operand in this slot
 
 +------------+-------------+-------------+-------------+------------------------------------------------------------------------+
 | Mnemonic   | Operand1    | Operand2    | Operand3    | Description                                                            |
@@ -192,9 +195,9 @@ We use the following conventions in this table:
 +------------+-------------+-------------+-------------+------------------------------------------------------------------------+
 | ``cmpeq``  |             |             |             | TODO                                                                   |
 +------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``cmpltu`` |             |             | -           | TODO unsigned comparison                                               |
+| ``cmpltu`` |             |             | --          | TODO unsigned comparison                                               |
 +------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``cmplts`` |             |             | -           | TODO signed comparison                                                 |
+| ``cmplts`` |             |             | --          | TODO signed comparison                                                 |
 +------------+-------------+-------------+-------------+------------------------------------------------------------------------+
 | ``push``   |             |             |             | TODO                                                                   |
 +------------+-------------+-------------+-------------+------------------------------------------------------------------------+
