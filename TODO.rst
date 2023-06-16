@@ -15,6 +15,7 @@
   * Add end-to-end N1 ISA support for one instruction
 
     * create the trivial executable (a do-nothing Rust cmdline program)
+
     * support a single instruction "Foo0" (this doc's placeholder).
 
       * add "Foo0" support to the simulator
