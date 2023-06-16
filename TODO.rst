@@ -1,11 +1,15 @@
 * Implement N1 ISA (first draft)
+
   * Start build-requirments doc (in README.md ?)
-  * Initial .rst docs support
+  * Initial .rst docs supporta
+
     * Create skeleton CMake file.
-    * Document the ISA in a .rst file.
+    * Document the ISA in a .rst file.a
+
       * Convert existing ISA doc to .rst for better table support.
       * Add .rst support to build system (and build-requirements doc).
       * Get the per-instruction table formatted correctly.
+
     * Get GitHub project page looking right. (May require .rst --> .html/.md checked into repo.)
   * Add end-to-end N1 ISA support for one instruction
     * create the trivial executable (a do-nothing Rust cmdline program)
