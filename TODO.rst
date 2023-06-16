@@ -27,6 +27,8 @@
 
           * parsing
           * printing
+          * (optional) add asm highlighting to VIM
+          * (optional) add asm highlighting to VSCode
 
         * add asm --> MC support
         * demonstrate asm --> simulated execution of "Foo0"
