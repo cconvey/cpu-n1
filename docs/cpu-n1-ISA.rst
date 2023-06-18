@@ -9,11 +9,11 @@ The specific ISA is a function of these parameters:
 +--------------------+------------------------------------------------------+
 | Parameter          | Description                                          |
 +====================+======================================================+
-|``word_size_bytes`` |  The number of bits constituting a machine word.     |
+| *word-size*        |  The number of bits constituting a machine word.     |
 |                    |  Note: This must be large enough to store all of     |
 |                    |  the flags defined for the ``%status`` register.     |
 +--------------------+------------------------------------------------------+
-|``instr_size_bytes``|  The number of bytes used to encode a single         |
+| *instr-size*       |  The number of bytes used to encode a single         |
 |                    |  program instruction. *All* machine instructions     |
 |                    |  (including operands) have this size.                |
 |                    |                                                      |
@@ -22,14 +22,14 @@ The specific ISA is a function of these parameters:
 |                    |  be encoded with fewer bytes than this parameter     |
 |                    |  indicates might use padding to reach this size.     |
 +--------------------+------------------------------------------------------+
-|``num_gp_regs``     |  The number of general-purpose registers.            |
+| *num-gp-regs*      |  The number of general-purpose registers.            |
 +--------------------+------------------------------------------------------+
 
 Memory
 ------
 
 -  The ISA uses a flat, non-virtual memory model.
--  Memory addresses are ``$word_size_bytes`` in size.
+-  Memory addresses are *word-size* in size.
 -  Each memory address names a single byte. (Instructions that operate
    on multi-byte regions of memory will generally indicate that range by
    the lowest-address byte in the range.)
@@ -73,7 +73,7 @@ Integers
 
 -  Signed integers use 2’s-complement representation.
 -  Unsigned integers have plain binary representaiton.
--  All integer values are ``$word_size_bytes`` long.
+-  All integer values are *word-size* long.
 
 Non-integers
 ~~~~~~~~~~~~
@@ -106,111 +106,139 @@ sub-registers. However, some mnemonics for sub-registers are provided
 for human-friendly documentation (and perhaps human-friendly assembly
 support).
 
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
-| Mnemonic         | Size                 | Initial value           | Description                                              |
-+==================+======================+=========================+==========================================================+
-| ``%pc``          | ``$word_size_bytes`` | 0                       | Program counter. Always holds the memory                 |
-|                  |                      |                         | address  of the instruction that will execute            |
-|                  |                      |                         | *after* the current one.                                 |
-|                  |                      |                         |                                                          |
-|                  |                      |                         | Unless stated otherwise, this is                         |
-|                  |                      |                         | incremented by ``$instr_size_bytes``                     |
-|                  |                      |                         | immediately before the currently loaded                  |
-|                  |                      |                         | instruction begins                                       |
-|                  |                      |                         | execution.                                               |
-|                  |                      |                         |                                                          |
-|                  |                      |                         | This may be a read-only register operand                 |
-|                  |                      |                         | for most/all instructions,                               |
-|                  |                      |                         | but can only be modified by certain                      |
-|                  |                      |                         | control-flow instructions.                               |
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
-| ``%sp``          | ``$word_size_bytes`` | 0                       | Stack pointer. Although its interpretation up to the     |
-|                  |                      |                         | user, it’s intended to support is function calls as      |
-|                  |                      |                         | defined by the system ABI.                               |
-|                  |                      |                         |                                                          |
-|                  |                      |                         | The ISA is designed to support a stack that grows        |
-|                  |                      |                         | toward lower addresses.                                  |
-|                  |                      |                         | addresses.                                               |
-|                  |                      |                         |                                                          |
-|                  |                      |                         | For conceptual simplicity, the ISA requires that this    |
-|                  |                      |                         | value has ``$word_size_bytes`` alignment.                |
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
-| ``%gp0``,        | ``$word_size_bytes`` | undefined               | General-purpose registers. How many is                   |
-| ``%gp1``,        |                      |                         | specified by ``$num_gp_regs``.                           |
-| …                |                      |                         |                                                          |
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
-| ``%status``      | ``$word_size_bytes`` | see below               | The status word register. The following are defined.     |
-|                  |                      |                         | All other bits are considered reserved and have no       |
-|                  |                      |                         | defined behavior.                                        |
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
-| ``%status.cmp``  | 1 bit                | undefined               | The outcome of the most recent comparison instruction.   |
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
-| ``%status.halt`` | 1 bit                | 1                       | ``0`` when the machine is running, ``1`` when it’s       |
-|                  |                      |                         | halted.                                                  |
-|                  |                      |                         |                                                          |
-|                  |                      |                         | A program may set this to ``1`` to indicate that is has  |
-|                  |                      |                         | run to completion.                                       |
-+------------------+----------------------+-------------------------+----------------------------------------------------------+
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| Mnemonic                   | Size                 | Initial value           | Description                                              |
++============================+======================+=========================+==========================================================+
+| ``%pc``                    | *word-size*          | 0                       | Program counter. Always holds the memory                 |
+|                            |                      |                         | address  of the instruction that will execute            |
+|                            |                      |                         | *after* the current one.                                 |
+|                            |                      |                         |                                                          |
+|                            |                      |                         | Unless stated otherwise, this is                         |
+|                            |                      |                         | incremented by *instr-size*                              |
+|                            |                      |                         | immediately before the currently loaded                  |
+|                            |                      |                         | instruction begins                                       |
+|                            |                      |                         | execution.                                               |
+|                            |                      |                         |                                                          |
+|                            |                      |                         | This may be a read-only register operand                 |
+|                            |                      |                         | for most/all instructions,                               |
+|                            |                      |                         | but can only be modified by certain                      |
+|                            |                      |                         | control-flow instructions.                               |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| ``%sp``                    | *word-size*          | 0                       | Stack pointer. Although its interpretation up to the     |
+|                            |                      |                         | user, it’s intended to support is function calls as      |
+|                            |                      |                         | defined by the system ABI.                               |
+|                            |                      |                         |                                                          |
+|                            |                      |                         | The ISA is designed to support a stack that grows        |
+|                            |                      |                         | toward lower addresses.                                  |
+|                            |                      |                         | addresses.                                               |
+|                            |                      |                         |                                                          |
+|                            |                      |                         | For conceptual simplicity, the ISA requires that this    |
+|                            |                      |                         | value has *word-size* alignment.                         |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| ``%gp0``,                  | *word-size*          | undefined               | General-purpose registers. How many is                   |
+| ``%gp1``,                  |                      |                         | specified by *num-gp-regs*.                              |
+| …                          |                      |                         |                                                          |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| ``%status``                | *word-size*          | see below               | The status word register. The following are defined.     |
+|                            |                      |                         | All other bits are considered reserved and have no       |
+|                            |                      |                         | defined behavior.                                        |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| ``%status.cmp``            | 1 bit                | undefined               | The outcome of the most recent comparison instruction.   |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| ``%status.overflow``       | 1 bit                | undefined               | Set/cleared by some ops involving math.                  |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
+| ``%status.halt``           | 1 bit                | 1                       | ``0`` when the machine is running, ``1`` when it’s       |
+|                            |                      |                         | halted.                                                  |
+|                            |                      |                         |                                                          |
+|                            |                      |                         | A program may set this to ``1`` to indicate that is has  |
+|                            |                      |                         | run to completion.                                       |
++----------------------------+----------------------+-------------------------+----------------------------------------------------------+
 
-Assembly Instructions
----------------------
+Suggested assembly language
+---------------------------
 
-Operands
-~~~~~~~~
-
-Instruction operands fall into these general categories: - Immediate
-value. Used either for math, or to name a memory address. - Register
-name. Indicates either: - the register whose initial value shall be
-used, or - the register into which a new value shall be store.
-
-Assembly Instruction Table
+Assembly grammar (partial)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Suggested assembly instructions, along with their semantics.
+*hex-word* : Regex ``0x[0-9a-fA-F]+``
 
-We use the following conventions in this table:
+    Must be exactly *$word-size* in length, with leading zeros of necessary.
 
-* ``s1`` means source operand #1
-* ``s2`` means source operand #2
-* ``d`` means destination operand.
-* ``(...)`` indicates what kind(s) of operand is/are valid here:
+*signed-dec-word* : Regex ``[+-]?[0-9]+s``
 
-  * ``(gp-reg)`` the name of any general-purpose register, such as ``%r0`` or ``%r13``
-  * ``(reg)`` the name of any register, including ``%sp``, ``%pc``, and ``%status``
-  * ``(imm)`` an immediate numerical value
-  * ``(...|...)`` any one of the list options, e.g. ``(gp-reg|imm)``.
+    The twos-complement bit pattern (*$word-size* in length)
+    of the specified number.
+    The number must lie within the valid range.
 
-* ``--`` means the operation doesn't accept an operand in this slot
+*unsigned-dec-word* : Regex ``[0-9]+u``
 
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| Mnemonic   | Operand1    | Operand2    | Operand3    | Description                                                            |
-+============+=============+=============+=============+========================================================================+
-| ``add``    | (gp-reg)    | (reg|imm)   | (reg|imm2)  | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``mult``   |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``load``   |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``store``  |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``cmpeq``  |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``cmpltu`` |             |             | --          | TODO unsigned comparison                                               |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``cmplts`` |             |             | --          | TODO signed comparison                                                 |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``push``   |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``pop``    |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``jmp``    |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``br``     |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``brcond`` |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
-| ``halt``   |             |             |             | TODO                                                                   |
-+------------+-------------+-------------+-------------+------------------------------------------------------------------------+
+    The unsigned-integer bit pattern (*$word-dize-bytes* in length)
+    of the specified number.
+    The number must lie within the valid range.
+
+*imm-u* : ``#`` followed by *unsigned-dec-word*
+
+*imm-s* : ``#`` followed by *signed-dec-word*
+
+*imm* : ``#`` followed by ( *signed-dec-word* | *unsigned-dec-word* )
+
+*gp-reg* :  any valid gp register, e.g. ``%gp3``
+
+*reg* : ( ``%pc`` | ``%sp`` | ``%status`` | *gp-reg* )
+
+w-reg : ( ``%sp`` | *gp-reg* )
+
+    A register into which most instructions can freely write.
+
+*r-reg* : ( *gp-reg* | ``%sp`` | ``%pc`` )
+
+    A register from which most instructions can freely read.
+
+Assembly instructions
+~~~~~~~~~~~~~~~~~~~~~
+
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| Mnemonic   | Operand1           | Operand2                          | Operand3                | Implicit reg. access     | Description                                                                          |
++============+====================+===================================+=========================+==========================+======================================================================================+
+| ``add``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | ``%status.overflow`` (w) | Numerically add the two values.  Signed vs. unsigned semantics are user-defined.     |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mult``   | TODO               | TODO                              | TODO                    | TODO                     | TODO: This needs more thought w.r.t. signed/unsigned and overflow support.           |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``divmod`` | TODO               | TODO                              | TODO                    | TODO                     | TODO: This needs more thought w.r.t. signed/unsigned and overflow support.           |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mov``    | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Copy the value Op2 into register Op1.                                                |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``load``   | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Copy the memory value *pointed to by* Op2 into register Op1.                         |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``store``  | *r-reg* \| *imm*   | *r-reg* \| *imm*                  | --                      | --                       | Copy the value Op2 to the memory location pointed to by Op1                          |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``cmpeq``  | *r-reg* \| *imm*   | *r-reg* \| *imm*                  | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if the operands have identical bit patterns; 0 of not.      |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``cmpltu`` | *r-reg* \| *imm-u* | *r-reg* \| *imm-u*                | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if Op1 < Op2 (assuming *unsigned int* encoding); 0 if not.  |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``cmplts`` | *r-reg* \| *imm-s* | *r-reg* \| *imm-s*                | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if Op1 < Op2 (assuming *two-comp* encoding); 0 if not.      |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``push``   | *r-reg* \| *imm*   | --                                | --                      | ``%sp`` (rw)             | Decrement ``%sp`` by *word-size*, and then copy the value of Op1 to                  |
+|            |                    |                                   |                         |                          | mem[0:( *word-size* - 1)]                                                            |
+|            |                    |                                   |                         |                          |                                                                                      |
+|            |                    |                                   |                         |                          | System behavior is undefined if this causes ``%sp`` to underflow.                    |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``pop``    | *w-reg*            | --                                | --                      | ``%sp`` (rw)             | Copy mem[0:( *word-size* - 1)] into register Op1, and then increment ``%sp`` by      |
+|            |                    |                                   |                         |                          | *word-size*.                                                                         |
+|            |                    |                                   |                         |                          |                                                                                      |
+|            |                    |                                   |                         |                          | System behavior is undefined if this causes ``%sp`` to overflow.                     |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``jmp``    | *r-reg* \| *imm*   | --                                | --                      | ``%pc`` (w)              | Set ``%pc`` to the specified value.                                                  |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``br``     | *r-reg* \| *imm*   | --                                | --                      | ``%pc`` (rw)             | Add the value of Op1 to ``%pc``.                                                     |
+|            |                    |                                   |                         |                          |                                                                                      |
+|            |                    |                                   |                         |                          | System behavior is undefined if this causes ``%pc`` to overflow.                     |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``brcond`` | *r-reg* \| *imm*   | --                                | --                      | ``%status.cmp`` (r)      | Like the ``br`` instruction of ``%status.cmp`` is set; otherwise do nothing.         |
+|            |                    |                                   |                         | ``%pc`` (rw)             |                                                                                      |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``halt``   | --                 | --                                | --                      | ``%status.halt`` (w)     | Stop system execution.  The exact behavior is system-defined.                        |
++------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
 
 Initial State
 -------------
