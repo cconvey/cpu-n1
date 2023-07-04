@@ -6,35 +6,55 @@ ISA Parameters
 
 The specific ISA is a function of these parameters:
 
-+--------------------+------------------------------------------------------+
-| Parameter          | Description                                          |
-+====================+======================================================+
-| *word-size*        |  The number of bits constituting a machine word.     |
-|                    |  Note: This must be large enough to store all of     |
-|                    |  the flags defined for the ``%status`` register.     |
-+--------------------+------------------------------------------------------+
-| *instr-size*       |  The number of bytes used to encode a single         |
-|                    |  program instruction. *All* machine instructions     |
-|                    |  (including operands) have this size.                |
-|                    |                                                      |
-|                    |  The encoding scheme for each assembly instruction   |
-|                    |  is described below. Note that instructions that can |
-|                    |  be encoded with fewer bytes than this parameter     |
-|                    |  indicates might use padding to reach this size.     |
-+--------------------+------------------------------------------------------+
-| *num-gp-regs*      |  The number of general-purpose registers.            |
-+--------------------+------------------------------------------------------+
++--------------------+------------------------------------------------------------------------------------+
+| Parameter          | Description                                                                        |
++====================+====================================================================================+
+| *word-size*        | The number of bits constituting a machine word.                                    |
+|                    |                                                                                    |
+|                    | This value is *not* required to be a power of 2.                                   |
+|                    | (Although that may change if it turns out to cause too many problems.)             |
+|                    |                                                                                    |
+|                    | Note: This must be large enough to store all of                                    |
+|                    | the flags defined for the ``%status`` register.                                    |
++--------------------+------------------------------------------------------------------------------------+
+| *instr-size*       | The number of bytes used to encode a single                                        |
+|                    | program instruction. *All* machine instructions                                    |
+|                    | (including operands) have this size.                                               |
+|                    |                                                                                    |
+|                    | For simplicity of the ISA, *instr-size* is required to be an integer multiple of   |
+|                    | *word-size*.                                                                       |
+|                    |                                                                                    |
+|                    | The encoding scheme (descibed below) may impose additional limitations on this     |
+|                    | value.                                                                             |
++--------------------+------------------------------------------------------------------------------------+
+| *num-gp-regs*      | The number of general-purpose registers.                                           |
++--------------------+------------------------------------------------------------------------------------+
 
 Memory
 ------
 
 -  The ISA uses a flat, non-virtual memory model.
--  Memory addresses are *word-size* in size.
+
 -  Each memory address names a single byte. (Instructions that operate
    on multi-byte regions of memory will generally indicate that range by
    the lowest-address byte in the range.)
+
+-  Memory addresses are *word-size* bytes in size.
+
+   This implies that the maximum amount of addressable memory in this ISA is
+   2^(*word-size*) bytes.
+
+   Implementations are not required to treat all addresses equally.
+   For example, some implementations may treat certain address ranges as
+   used for MMIO, ROM, etc.  Or, as in some(?) x86-64 procesors, treat
+   the highest-order bits as irrelevant to addressing, which allows
+   some programs to repurpose those bits.  However, the ISA currently
+   has no specific support for making these details discoverable or
+   enforceable; that remains implementation-defined.
+
 -  The memory model does *not* have the concept of pages, nor of memory
    protections.
+
 -  There is no requirement that memory read/write instructions specify
    word-aligned addresses.
 
@@ -120,68 +140,86 @@ sub-registers. However, some mnemonics for sub-registers are provided
 for human-friendly documentation (and perhaps human-friendly assembly
 support).
 
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| Mnemonic                   | Size                 | Initial value | Description                                                                            |
-+============================+======================+===============+========================================================================================+
-| ``%pc``                    | *word-size*          | 0             | Program counter. Always holds the memory                                               |
-|                            |                      |               | address  of the instruction that will execute                                          |
-|                            |                      |               | *after* the current one.                                                               |
-|                            |                      |               |                                                                                        |
-|                            |                      |               | Unless stated otherwise, this is                                                       |
-|                            |                      |               | incremented by *instr-size*                                                            |
-|                            |                      |               | immediately before the currently loaded                                                |
-|                            |                      |               | instruction begins                                                                     |
-|                            |                      |               | execution.                                                                             |
-|                            |                      |               |                                                                                        |
-|                            |                      |               | This may be a read-only register operand                                               |
-|                            |                      |               | for most/all instructions,                                                             |
-|                            |                      |               | but can only be modified by certain                                                    |
-|                            |                      |               | control-flow instructions.                                                             |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| ``%sp``                    | *word-size*          | 0             | Stack pointer. Although its interpretation up to the                                   |
-|                            |                      |               | user, it’s intended to support is function calls as                                    |
-|                            |                      |               | defined by the system ABI.                                                             |
-|                            |                      |               |                                                                                        |
-|                            |                      |               | The ISA is designed to support a stack that grows                                      |
-|                            |                      |               | toward lower addresses.                                                                |
-|                            |                      |               | addresses.                                                                             |
-|                            |                      |               |                                                                                        |
-|                            |                      |               | For conceptual simplicity, the ISA requires that this                                  |
-|                            |                      |               | value has *word-size* alignment.                                                       |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| ``%gp0``,                  | *word-size*          | undefined     | General-purpose registers. How many is                                                 |
-| ``%gp1``,                  |                      |               | specified by *num-gp-regs*.                                                            |
-| …                          |                      |               |                                                                                        |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| ``%status``                | *word-size*          | see below     | The status word register. The following are defined.                                   |
-|                            |                      |               | All other bits are considered reserved and have no                                     |
-|                            |                      |               | defined behavior.                                                                      |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| ``%status.cmp``            | 1 bit                | undefined     | The outcome of the most recent comparison instruction.                                 |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| ``%status.overflow``       | 1 bit                | undefined     | Set/cleared by some ops involving math.                                                |
-|                            |                      |               |                                                                                        |
-|                            |                      |               | "overflow" might be a poor word for some uses, so this part of the ISA may be changed, |
-|                            |                      |               | and/or this register might get renamed to something more appropriate.                  |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
-| ``%status.halt``           | 1 bit                | 1             | ``0`` when the machine is running, ``1`` when it’s                                     |
-|                            |                      |               | halted.                                                                                |
-|                            |                      |               |                                                                                        |
-|                            |                      |               | A program may set this to ``1`` to indicate that is has                                |
-|                            |                      |               | run to completion.                                                                     |
-+----------------------------+----------------------+---------------+----------------------------------------------------------------------------------------+
+The "Operand-code" column isn't related to assembly programming.
+It indicates the numeric value used to identify that particular register
+in the ISA's instruction encoding.
+
+.. TODO:
+   - Move the docs for the '...u' convention above this table, because the table uses them.
+
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| Mnemonic                   | Size                 | Initial value | Operand-code | Description                                                                            |
++============================+======================+===============+==============+========================================================================================+
+| ``%pc``                    | *word-size*          | 0             | 1u           | Program counter. Always holds the address of the instruction to be executed.           |
+|                            |                      |               |              | *after* the current one.                                                               |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| ``%sp``                    | *word-size*          | 0             | 2u           | Stack pointer. Although its interpretation up to the                                   |
+|                            |                      |               |              | user, it’s intended to support is function calls as                                    |
+|                            |                      |               |              | defined by the system ABI.                                                             |
+|                            |                      |               |              |                                                                                        |
+|                            |                      |               |              | The ISA is designed to support a stack that grows                                      |
+|                            |                      |               |              | toward lower addresses.                                                                |
+|                            |                      |               |              | addresses.                                                                             |
+|                            |                      |               |              |                                                                                        |
+|                            |                      |               |              | For conceptual simplicity, the ISA requires that this                                  |
+|                            |                      |               |              | value has *word-size* alignment.                                                       |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| ``%status``                | *word-size*          | see below     | 3u           | The status word register. The following are defined.                                   |
+|                            |                      |               |              | All other bits are considered reserved and have no                                     |
+|                            |                      |               |              | defined meaning.                                                                       |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| ``%status.cmp``            | 1 bit                | undefined     | N/A          | The outcome of the most recent comparison instruction.                                 |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| ``%status.overflow``       | 1 bit                | undefined     | N/A          | Set/cleared by some ops involving math.                                                |
+|                            |                      |               |              |                                                                                        |
+|                            |                      |               |              | "overflow" might be a poor word for some uses, so this part of the ISA may be changed, |
+|                            |                      |               |              | and/or this register might get renamed to something more appropriate.                  |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| ``%status.halt``           | 1 bit                | 1             | N/A          | ``0`` when the machine is running, ``1`` when it’s                                     |
+|                            |                      |               |              | halted.                                                                                |
+|                            |                      |               |              |                                                                                        |
+|                            |                      |               |              | A program may set this to ``1`` to indicate that is has                                |
+|                            |                      |               |              | run to completion.                                                                     |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
+| ``%gp0``,                  | *word-size*          | undefined     | 256u,        | General-purpose registers. How many is                                                 |
+| ``%gp1``,                  |                      |               | 257u,        | specified by *num-gp-regs*.                                                            |
+| …                          |                      |               | ...          |                                                                                        |
++----------------------------+----------------------+---------------+--------------+----------------------------------------------------------------------------------------+
 
 Suggested assembly language
 ---------------------------
 
-Assembly grammar (partial)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Operand grammar (partial)
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-TODO: pick a specific regex language, and update the regex's below to rigorously comply.
+Notes:
+
+    * The grammars below for numeric literals allow multiple representations of
+      the same number.  E.g., ``0042``, ``042``, and ``42``.
+
+      For each of these grammars, we also define a *normal form*, which gives
+      a predictable upper-bound on the string lengths.
+
+      We do this to allow our machine-code encoding, which uses human-friendly
+      string renditions of these numbers, to have a predictable instruction
+      length.
 
 *hex-word* : Regex ``0x[0-9a-fA-F]+``
 
-    Must be exactly *$word-size* in length, with leading zeros of necessary.
+    Hexadecimal representation of a number in the range 0 ... 2 ::sup::`wordsize`.
+
+    Leading zeros are permitted, but the overall string-length may be limited by
+    assemblers, etc.
+
+    Normal form:
+
+        * The total number of hexadecimal digits is precisely ``ceil( log_16(wordsize * 8) )``.
+
+          This may require adding or removing leading zeroes from the original form.
+
+    Exact  normal-form string length: ::
+
+        len("0x") + ceil( log_16(wordsize * 8) )
 
 *signed-dec-word* : Regex ``[+-]?[0-9]+s``
 
@@ -189,19 +227,58 @@ TODO: pick a specific regex language, and update the regex's below to rigorously
     of the specified number.
     The number must lie within the valid range.
 
+    Leading zeros are permitted, but the overall string-length may be limited by
+    assemblers, etc.
+
+    E.g.: ``+42s``, ``42s``, ``-42s``, ``-00042s``, ``0s``, ``-0s``, ``+0s``.
+
+    Normal form:
+
+        * Any string equivalent to numeric zero becomes ``+0s``.
+
+        * If the string doesn't start with ``-``, then it starts with ``+``.
+
+        * All leading zeroes are removed (when the string isn't equivalent to
+          numeric zero).
+
+    Maximum normal-form string length:
+
+        .. code-block::
+
+            max(len("+"), len("-")) + ceil( (wordsize*8 - 1) * log_10(2) ) + len("s")
+
 *unsigned-dec-word* : Regex ``[0-9]+u``
 
     The unsigned-integer bit pattern (*$word-dize-bytes* in length)
     of the specified number.
     The number must lie within the valid range.
 
-*imm-u* : ``#`` followed by *unsigned-dec-word*
+    Leading zeros are permitted, but the overall string-length may be limited by
+    assemblers, etc.
 
-*imm-s* : ``#`` followed by *signed-dec-word*
+    E.g.: ``42u``, ``0u``, ``00042u``.
 
-*imm* : ``#`` followed by ( *signed-dec-word* | *unsigned-dec-word* )
+    Normal form:
+
+        * Any string equivalent to numeric zero becomes ``0u``.
+
+        * For all other numbers, all leading zeroes are removed.
+
+    Maximum normal-form string length:
+
+        .. code-block::
+
+            ceil( (wordsize*8  * log_10(2) ) + len("u")
+
+*imm-u* : *unsigned-dec-word*
+
+*imm-s* : *signed-dec-word*
+
+*imm* : ( *signed-dec-word* | *unsigned-dec-word* )
 
 *gp-reg* :  any valid gp register, e.g. ``%gp3``
+
+    Note: The register number may not contain leading zeroes.  E.g., ``%gp03`` is *not* legal.
 
 *reg* : ( ``%pc`` | ``%sp`` | ``%status`` | *gp-reg* )
 
@@ -216,7 +293,7 @@ TODO: pick a specific regex language, and update the regex's below to rigorously
 Assembly instructions
 ~~~~~~~~~~~~~~~~~~~~~
 
-Conventions for pseudocode used in assembly descriptions:
+Conventions for pseudocode used in assembly descriptions and instruction encoding:
 
 * *zxdw(...)* - The bit-pattern produced by zero-extending the *word-size* parameter to a
     bit-pattern of size 2 * *word-size*.
@@ -243,142 +320,137 @@ Conventions for pseudocode used in assembly descriptions:
     * Strictly speaking, *every* instruction implicitly modifies ``%pc``.  For readability,
       we only list ``%pc`` for instructions that modify ``%pc`` in noteworthy ways.
 
-TODO:
+* The "Opcode" column indicates the opcode used for the corresponding machine instruction.
+  Although not technically part of the assembly code, we provide it here to avoid another
+  table with one row per instruction.
 
-* Add bitwise logical and shift operators.
-
-* Better pseudo-code
-
-  * Provide it for all suitable instructions.
-  * Format it it well, e.g. with ``.. code-block::``.
+.. TODO:
+..
+.. * Better pseudo-code
+..
+..   * Provide it for all suitable instructions.
+..   * Format it it well, e.g. with ``.. code-block::``.
 
 .. |            |                    |                                   |                         |                          |                                                                                      |
 
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| Mnemonic   | Operand1           | Operand2                          | Operand3                | Implicit reg. access     | Description                                                                          |
-+============+====================+===================================+=========================+==========================+======================================================================================+
-| ``add``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | ``%status.overflow`` (w) | Op1 ← Op2 + Op3                                                                      |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | %status.overflow ← (the result wrapped due to overflow)                              |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``sub``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | ``%status.overflow`` (w) | Op1 ← Op2 - Op3                                                                      |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | .. code-block::                                                                      |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          |   Op1 ← Op2 - Op3                                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``sub``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | ``%status.overflow`` (w) | Op1 ← Op2 - Op3                                                                      |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | %status.overflow ← (the result wrapped due to underflow)                             |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``mul``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | .. code-block::                                                                      |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          |    Op1 ← (zxdw(Op2) * zxdw(Op3))[ word-size ... 0 ]                                  |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Compute the lower-half result of Op2 * Op3.                                          |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Note that signed/unsigned distinction isn't needed for this lower-half.              |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``mulhss`` | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | --                       | Op1 ← (sxdw(Op2) * sxdw(Op3)[ ((2 *  *word-size*) - 1) ... *word-size* ]             |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Compute the upper-half result of Op2 * Op3.  Assume Op2 and Op3 are signed.          |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``mulhsu`` | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | --                       | Op1 ← (sxdw(Op2) * zxdw(Op3)[ ((2 *  *word-size*) - 1) ... *word-size* ]             |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Compute the upper-half result of Op2 * Op3.  Assume Op2 is signed, Op3 is unsigned.  |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``mulhuu`` | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | --                       | Op1 ← (zxdw(Op2) * zxdw(Op3)[ ((2 *  *word-size*) - 1) ... *word-size* ]             |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Compute the upper-half result of Op2 * Op3.  Assume Op2 and Op3 are unsigned.        |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``dipss``  | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | ``%status.overflow`` (w) | Op1 ← (Op2 / Op3) rounded towards zero.                                              |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are signed.                                    |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``divuu``  | *w-reg*            | *r-reg* \| *imm-u*                | *r-reg* \| *imm-u*      | ``%status.overflow`` (w) | Op1 ← (Op2 / Op3) rounded towards zero.                                              |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are unsigned.                                  |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``remss``  | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | ``%status.overflow`` (w) | Op1 ← (Op2 % Op3)                                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are signed.                                    |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``remuu``  | *w-reg*            | *r-reg* \| *imm-u*                | *r-reg* \| *imm-u*      | ``%status.overflow`` (w) | Op1 ← (Op2 % Op3)                                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are unsigned.                                  |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``and``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | Op1 ← Op2 & Op3                                                                      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``or``     | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | Op1 ← Op2 | Op3                                                                      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``xor``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | Op1 ← Op2 ^ Op3                                                                      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``not``    | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Op1 ← ~Op2                                                                           |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``lsl``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm-u*      |                          | Op1 ← Op2 << Op3                                                                     |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Compute the logical-left-shift of Op2, shifted by the number of bits indicated by    |
-|            |                    |                                   |                         |                          | Op3.                                                                                 |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | If Op3 > *word-size*, the instruction is illegal.                                    |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``rsl``    | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm-u*      |                          | Op1 ← Op2 >> Op3                                                                     |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | Compute the logical-right-shift of Op2, shifted by the number of bits indicated by   |
-|            |                    |                                   |                         |                          | Op3.                                                                                 |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | If Op3 > *word-size*, the instruction is illegal.                                    |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``mov``    | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Copy the value Op2 into register Op1.                                                |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``load``   | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Copy the memory value *pointed to by* Op2 into register Op1.                         |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``store``  | *r-reg* \| *imm*   | *r-reg* \| *imm*                  | --                      | --                       | Copy the value Op2 to the memory location pointed to by Op1                          |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``cmpeq``  | *r-reg* \| *imm*   | *r-reg* \| *imm*                  | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if the operands have identical bit patterns; 0 of not.      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``cmpltu`` | *r-reg* \| *imm-u* | *r-reg* \| *imm-u*                | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if Op1 < Op2 (assuming *unsigned int* encoding); 0 if not.  |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``cmplts`` | *r-reg* \| *imm-s* | *r-reg* \| *imm-s*                | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if Op1 < Op2 (assuming *two-comp* encoding); 0 if not.      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``push``   | *r-reg* \| *imm*   | --                                | --                      | ``%sp`` (rw)             | Decrement ``%sp`` by *word-size*, and then copy the value of Op1 to                  |
-|            |                    |                                   |                         |                          | mem[0:( *word-size* - 1)]                                                            |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | System behavior is undefined if this causes ``%sp`` to underflow.                    |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``pop``    | *w-reg*            | --                                | --                      | ``%sp`` (rw)             | Copy mem[0:( *word-size* - 1)] into register Op1, and then increment ``%sp`` by      |
-|            |                    |                                   |                         |                          | *word-size*.                                                                         |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | System behavior is undefined if this causes ``%sp`` to overflow.                     |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``jmp``    | *r-reg* \| *imm*   | --                                | --                      | ``%pc`` (w)              | Set ``%pc`` to the specified value.                                                  |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``br``     | *r-reg* \| *imm*   | --                                | --                      | ``%pc`` (rw)             | Add the value of Op1 to ``%pc``.                                                     |
-|            |                    |                                   |                         |                          |                                                                                      |
-|            |                    |                                   |                         |                          | System behavior is undefined if this causes ``%pc`` to overflow.                     |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``brcond`` | *r-reg* \| *imm*   | --                                | --                      | ``%status.cmp`` (r)      | Like the ``br`` instruction of ``%status.cmp`` is set; otherwise do nothing.         |
-|            |                    |                                   |                         | ``%pc`` (rw)             |                                                                                      |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
-| ``halt``   | --                 | --                                | --                      | ``%status.halt`` (w)     | Stop system execution.  The exact behavior is system-defined.                        |
-+------------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| Mnemonic   | Opcode   | Operand1           | Operand2                          | Operand3                | Implicit reg. access     | Description                                                                          |
++============+==========+====================+===================================+=========================+==========================+======================================================================================+
+| ``add``    | 1u       | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | ``%status.overflow`` (w) | Op1 ← Op2 + Op3                                                                      |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | %status.overflow ← (the result wrapped due to overflow)                              |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``sub``    | 2u       | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | ``%status.overflow`` (w) | Op1 ← Op2 - Op3                                                                      |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | %status.overflow ← (the result wrapped due to underflow)                             |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mul``    | 3u       | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | .. code-block::                                                                      |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          |    Op1 ← (zxdw(Op2) * zxdw(Op3))[ word-size ... 0 ]                                  |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Compute the lower-half result of Op2 * Op3.                                          |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Note that signed/unsigned distinction isn't needed for this lower-half.              |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mulhss`` | 4u       | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | --                       | Op1 ← (sxdw(Op2) * sxdw(Op3)[ ((2 *  *word-size*) - 1) ... *word-size* ]             |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Compute the upper-half result of Op2 * Op3.  Assume Op2 and Op3 are signed.          |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mulhsu`` | 5u       | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | --                       | Op1 ← (sxdw(Op2) * zxdw(Op3)[ ((2 *  *word-size*) - 1) ... *word-size* ]             |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Compute the upper-half result of Op2 * Op3.  Assume Op2 is signed, Op3 is unsigned.  |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mulhuu`` | 6u       | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | --                       | Op1 ← (zxdw(Op2) * zxdw(Op3)[ ((2 *  *word-size*) - 1) ... *word-size* ]             |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Compute the upper-half result of Op2 * Op3.  Assume Op2 and Op3 are unsigned.        |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``dipss``  | 7u       | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | ``%status.overflow`` (w) | Op1 ← (Op2 / Op3) rounded towards zero.                                              |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are signed.                                    |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``divuu``  | 8u       | *w-reg*            | *r-reg* \| *imm-u*                | *r-reg* \| *imm-u*      | ``%status.overflow`` (w) | Op1 ← (Op2 / Op3) rounded towards zero.                                              |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are unsigned.                                  |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``remss``  | 9u       | *w-reg*            | *r-reg* \| *imm-s*                | *r-reg* \| *imm-s*      | ``%status.overflow`` (w) | Op1 ← (Op2 % Op3)                                                                    |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are signed.                                    |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``remuu``  | 10u      | *w-reg*            | *r-reg* \| *imm-u*                | *r-reg* \| *imm-u*      | ``%status.overflow`` (w) | Op1 ← (Op2 % Op3)                                                                    |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | If Op3 == 0, Op1's value is undefined.                                               |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | ``%status.overflow`` ← (Op3 != 0)                                                    |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Integer division.  Assume Op2 and Op3 are unsigned.                                  |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``and``    | 11u      | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | Op1 ← Op2 & Op3                                                                      |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``or``     | 12u      | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | Op1 ← Op2 | Op3                                                                      |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``xor``    | 13u      | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm*        | --                       | Op1 ← Op2 ^ Op3                                                                      |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``not``    | 14u      | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Op1 ← ~Op2                                                                           |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``lsl``    | 15u      | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm-u*      |                          | Op1 ← Op2 << Op3                                                                     |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Compute the logical-left-shift of Op2, shifted by the number of bits indicated by    |
+|            |          |                    |                                   |                         |                          | Op3.                                                                                 |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | If Op3 > *word-size*, the instruction is illegal.                                    |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``rsl``    | 16u      | *w-reg*            | *r-reg* \| *imm*                  | *r-reg* \| *imm-u*      |                          | Op1 ← Op2 >> Op3                                                                     |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | Compute the logical-right-shift of Op2, shifted by the number of bits indicated by   |
+|            |          |                    |                                   |                         |                          | Op3.                                                                                 |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | If Op3 > *word-size*, the instruction is illegal.                                    |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``mov``    | 17u      | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Copy the value Op2 into register Op1.                                                |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``load``   | 18u      | *w-reg*            | *r-reg* \| *imm*                  | --                      | --                       | Copy the memory value *pointed to by* Op2 into register Op1.                         |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``store``  | 19u      | *r-reg* \| *imm*   | *r-reg* \| *imm*                  | --                      | --                       | Copy the value Op2 to the memory location pointed to by Op1                          |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``cmpeq``  | 20u      | *r-reg* \| *imm*   | *r-reg* \| *imm*                  | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if the operands have identical bit patterns; 0 of not.      |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``cmpltu`` | 21u      | *r-reg* \| *imm-u* | *r-reg* \| *imm-u*                | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if Op1 < Op2 (assuming *unsigned int* encoding); 0 if not.  |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``cmplts`` | 22u      | *r-reg* \| *imm-s* | *r-reg* \| *imm-s*                | --                      | ``%status.cmp`` (w)      | Set ``$status.cmp`` to 1 if Op1 < Op2 (assuming *two-comp* encoding); 0 if not.      |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``push``   | 23u      | *r-reg* \| *imm*   | --                                | --                      | ``%sp`` (rw)             | Decrement ``%sp`` by *word-size*, and then copy the value of Op1 to                  |
+|            |          |                    |                                   |                         |                          | mem[0:( *word-size* - 1)]                                                            |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | System behavior is undefined if this causes ``%sp`` to underflow.                    |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``pop``    | 24u      | *w-reg*            | --                                | --                      | ``%sp`` (rw)             | Copy mem[0:( *word-size* - 1)] into register Op1, and then increment ``%sp`` by      |
+|            |          |                    |                                   |                         |                          | *word-size*.                                                                         |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | System behavior is undefined if this causes ``%sp`` to overflow.                     |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``jmp``    | 25u      | *r-reg* \| *imm*   | --                                | --                      | ``%pc`` (w)              | Set ``%pc`` to the specified value.                                                  |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``br``     | 26u      | *r-reg* \| *imm*   | --                                | --                      | ``%pc`` (rw)             | Add the value of Op1 to ``%pc``.                                                     |
+|            |          |                    |                                   |                         |                          |                                                                                      |
+|            |          |                    |                                   |                         |                          | System behavior is undefined if this causes ``%pc`` to overflow.                     |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``brcond`` | 27u      | *r-reg* \| *imm*   | --                                | --                      | ``%status.cmp`` (r)      | Like the ``br`` instruction of ``%status.cmp`` is set; otherwise do nothing.         |
+|            |          |                    |                                   |                         | ``%pc`` (rw)             |                                                                                      |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
+| ``halt``   | 28u      | --                 | --                                | --                      | ``%status.halt`` (w)     | Stop system execution.  The exact behavior is system-defined.                        |
++------------+----------+--------------------+-----------------------------------+-------------------------+--------------------------+--------------------------------------------------------------------------------------+
 
 Initial State
 -------------
@@ -396,11 +468,59 @@ follows:
 
 Assembly to Machine Instruction Encoding
 ----------------------------------------
-TODO
+
+Every machine instruction is encoded as a sequence of 4 words, with word 0 as the lowest-address word.
+
+    * word 0: operation
+    * word 1: operand #1
+    * word 2: operand #2, or all zeros if not applicable.
+    * word 3: operand #3, or all zeros if not applicable.
+
+Operation word (word #0)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------------------------+------------------------------------------------------------------------------------------------------+
+| bit range                      | interpretation                                                                                       |
++================================+======================================================================================================+
+| [ (*word-size*-1) ... 8 ]      | An unsigned integer indicating an instruction from the assembly language table, above.               |
+|                                |                                                                                                      |
+|                                | See the "Opcode" column in the instruction table below for the mapping.                              |
++--------------------------------+------------------------------------------------------------------------------------------------------+
+| [ 7 ... 6 ]                    | Reserved for future use.  Must be 00b.                                                               |
++--------------------------------+------------------------------------------------------------------------------------------------------+
+| [ 5 ... 4 ] (for operand #1)   | For each of the 3 operand slots, this indicates the operand kind:                                    |
+|                                |                                                                                                      |
+|                                |    00b : No operand provided; corresponding operand slot should contain all zeros.                   |
+|                                |                                                                                                      |
+| [ 3 ... 2 ] (for operand #2)   |    01b : The corresponding operand slot holds an immediate value                                     |
+|                                |                                                                                                      |
+|                                |    10b : The corresponding operand slot holds a register name; see below for register-name encoding. |
+| [ 1 ... 0 ] (for operand #3)   |                                                                                                      |
+|                                |    11b : Reserved for future use.                                                                    |
++--------------------------------+------------------------------------------------------------------------------------------------------+
+
+Operand words (words #1 ... #3)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each operand word is encoded as follows, depending on the operand kind:
+
++--------------------------------+------------------------------------------------------------------------------------------------------+
+| operand kind                   | interpretation                                                                                       |
++================================+======================================================================================================+
+| no operand (00b)               | The instruction doesn't use this operand.  Must be all zeros.                                        |
++--------------------------------+------------------------------------------------------------------------------------------------------+
+| immediate value (01b)          | The slot is populated with the immediate value's bit pattern.                                        |
++--------------------------------+------------------------------------------------------------------------------------------------------+
+| register name (10b)            | The slot contains the name of some register.  See the "Operand code" column in the registers table.  |
++--------------------------------+------------------------------------------------------------------------------------------------------+
 
 Design Rationalle for ISA Details
 ---------------------------------
 TODO:
+
+* Why unused operand slots must contain all zeros.
+
+* Why ISA reserves bits  [7..6] in the opcode word.
 
 * Why no zero register
 
