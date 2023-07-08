@@ -1,0 +1,45 @@
+* TODO
+
+  - [ ] Simulator trivial first implementation
+
+        - [ ] create a trivial executable (a do-nothing Rust cmdline program)
+        - [ ] implement observability (via logging)?
+        - [ ] implement initialization
+        - [ ] support ISA parameterization
+
+  - [ ] Simulator full implementation
+
+        - [ ] support all instructions and register
+              - [ ] create encoder/decoder library
+                    - [ ] support parameterization
+                    - [ ] Rust support for the simulator
+                    - [ ] (later?) C++ support for LLVM?
+                        This is probably something to tackle at the LLVM
+                        level.  Maybe use tblgen to produce the Rust and
+                        LLVM-C++ versions of the encoding library?
+              - [ ] ensure every instruction/register is covered by a unit
+                test
+
+  - [ ] Implement N1 ISA (first draft)
+
+
+        - [ ] Add end-to-end N1 ISA support for one instruction
+
+          - [ ] support a single instruction "Foo0" (this doc's placeholder).
+
+            - [ ] add "Foo0" support to the simulator
+            - [ ] add "Foo0" support to LLVM
+              - [ ] add CPU-N1 as a trivially supported LLVM target
+              - [ ] add asm support
+
+            - [ ] parsing
+            - [ ] printing
+            - [ ] (optional) add asm highlighting to VIM
+            - [ ] (optional) add asm highlighting to VSCode
+
+          - [ ] add asm --> MC support
+          - [ ] demonstrate asm --> simulated execution of "Foo0"
+          - [ ] update project documentation
+
+        - [ ] Add end-to-end support for the rest of the ISA.
+
