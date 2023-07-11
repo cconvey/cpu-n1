@@ -1,8 +1,10 @@
-* TODO
+* DONE
 
-  - [ ] Simulator trivial first implementation
+  - [-] Simulator trivial first implementation
 
-        - [ ] create a trivial executable (a do-nothing Rust cmdline program)
+        - [X] create a trivial executable (a do-nothing Rust cmdline program)
+        - [ ] add basic REPL support, with stub handlers for expected
+          commands
         - [ ] implement observability (via logging)?
         - [ ] implement initialization
         - [ ] support ISA parameterization
