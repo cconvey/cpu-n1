@@ -1,5 +1,6 @@
 {
     "cmake.configureOnOpen": true,
     "C_Cpp.codeAnalysis.clangTidy.enabled": true,
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.guides.indentation": false
 }
