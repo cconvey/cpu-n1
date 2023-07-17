@@ -2,4 +2,6 @@
 
 using namespace std;
 
-int main() { cout << "Hello, cpu-n1-sum" << endl; }
+int main() {
+  cout << "Hello, cpu-n1-sum" << endl;
+}

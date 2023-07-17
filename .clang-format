@@ -1,1 +1,4 @@
 BasedOnStyle: LLVM
+
+Language: Cpp
+AllowShortFunctionsOnASingleLine: None
