@@ -1,5 +1,6 @@
 # Checks: '-*,clang-diagnostic-*,llvm-*,misc-*,-misc-const-correctness,-misc-unused-parameters,-misc-non-private-member-variables-in-classes,-misc-no-recursion,readability-identifier-naming'
-Checks: 'cpp-core-guidelines-*'
+
+Checks: 'cppcoreguidelines-*'
 
 CheckOptions:
   - key:             readability-identifier-naming.ClassCase
